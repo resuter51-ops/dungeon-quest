@@ -1390,7 +1390,9 @@ const GAME = {
     const mins = Math.floor(time / 60);
     const secs = time % 60;
     
+    const dMods = this.difficultyMods[this.difficulty] || this.difficultyMods.adventurer;
     stats.innerHTML = `
+      <span class="diff-badge ${this.difficulty}">${dMods.label}</span><br><br>
       You reached <span>Floor ${this.floor}</span> of ${this.maxFloor}<br>
       Level: <span>${this.player.level}</span><br>
       Enemies slain: <span>${this.kills}</span><br>
@@ -1412,8 +1414,10 @@ const GAME = {
     
     screen.querySelector('h1').textContent = 'VICTORY!';
     screen.querySelector('h1').style.color = '#44ff44';
+    const dMods = this.difficultyMods[this.difficulty] || this.difficultyMods.adventurer;
     stats.innerHTML = `
       You escaped with the Amulet of Salvation!<br><br>
+      <span class="diff-badge ${this.difficulty}">${dMods.label}</span><br><br>
       You reached <span>Floor ${this.maxFloor}</span><br>
       Level: <span>${this.player.level}</span><br>
       Enemies slain: <span>${this.kills}</span><br>
@@ -1594,9 +1598,16 @@ const GAME = {
   // ===================== SCREEN MANAGEMENT =====================
   showGameScreen() {
     document.getElementById('title-screen').style.display = 'none';
+    document.getElementById('difficulty-screen').style.display = 'none';
     document.getElementById('game-screen').style.display = 'flex';
     document.getElementById('game-screen').style.flexDirection = 'column';
     document.getElementById('controls').style.display = 'flex';
+    // Show difficulty badge in HUD
+    const mods = this.difficultyMods[this.difficulty] || this.difficultyMods.adventurer;
+    const badge = document.getElementById('hud-diff');
+    badge.textContent = mods.label;
+    badge.className = 'diff-badge ' + this.difficulty;
+    document.getElementById('hud-diff-wrapper').style.display = '';
     this.render();
   },
   
