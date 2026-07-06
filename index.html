@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Salvager's Quest — A Roguelike Dungeon Crawler</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a0f;
+  color: #c4a35a;
+  font-family: 'Courier New', monospace;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+  touch-action: none;
+}
+#game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 720px;
+  padding: 10px;
+}
+#title-screen {
+  text-align: center;
+  padding: 40px 20px;
+}
+#title-screen h1 {
+  font-size: 2.5em;
+  color: #d4af37;
+  text-shadow: 2px 2px 4px #000, 0 0 20px rgba(212,175,55,0.3);
+  margin-bottom: 10px;
+  letter-spacing: 3px;
+}
+#title-screen h2 {
+  font-size: 1.2em;
+  color: #8a7a4a;
+  margin-bottom: 30px;
+}
+#title-screen .instructions {
+  color: #6a6a5a;
+  font-size: 0.85em;
+  max-width: 400px;
+  margin: 0 auto 25px;
+  line-height: 1.6;
+  text-align: left;
+  padding: 15px;
+  border: 1px solid #333;
+  border-radius: 5px;
+  background: #111;
+}
+#title-screen .instructions h3 {
+  color: #d4af37;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.btn {
+  background: #1a1a2e;
+  color: #d4af37;
+  border: 2px solid #d4af37;
+  padding: 12px 30px;
+  font-family: 'Courier New', monospace;
+  font-size: 1.1em;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s;
+  letter-spacing: 2px;
+}
+.btn:hover {
+  background: #d4af37;
+  color: #0a0a0f;
+}
+.btn:active { transform: scale(0.97); }
+#game-screen { display: none; width: 100%; }
+#hud {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 0.85em;
+}
+#hud .stat { color: #aaa; }
+#hud .stat span { color: #d4af37; font-weight: bold; }
+#hud .hp-bar-container {
+  width: 120px;
+  height: 16px;
+  background: #330000;
+  border: 1px solid #553333;
+  border-radius: 2px;
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: middle;
+}
+#hud .hp-bar { height: 100%; background: linear-gradient(90deg, #8b0000, #ff3333); transition: width 0.3s; }
+#hud .xp-bar-container {
+  width: 100px;
+  height: 10px;
+  background: #001133;
+  border: 1px solid #335577;
+  border-radius: 2px;
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: middle;
+}
+#hud .xp-bar { height: 100%; background: linear-gradient(90deg, #0044aa, #44aaff); transition: width 0.3s; }
+#canvas-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+#game-canvas {
+  border: 2px solid #333;
+  border-radius: 4px;
+  background: #000;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  max-width: 100%;
+  height: auto;
+}
+#message-log {
+  width: 100%;
+  height: 60px;
+  overflow-y: auto;
+  padding: 6px 10px;
+  background: #0d0d15;
+  border: 1px solid #2a2a3a;
+  border-radius: 4px;
+  margin-top: 8px;
+  font-size: 0.8em;
+  color: #888;
+  line-height: 1.4;
+}
+#message-log .msg-new { color: #d4af37; }
+#message-log .msg-damage { color: #ff6666; }
+#message-log .msg-heal { color: #66ff66; }
+#message-log .msg-loot { color: #aa88ff; }
+#message-log .msg-level { color: #44aaff; }
+#controls {
+  display: none;
+  width: 100%;
+  margin-top: 10px;
+  justify-content: space-between;
+  align-items: center;
+}
+#dpad {
+  display: grid;
+  grid-template-columns: 50px 50px 50px;
+  grid-template-rows: 50px 50px 50px;
+  gap: 3px;
+}
+#dpad button {
+  background: #1a1a2e;
+  color: #d4af37;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 1.2em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#dpad button:active { background: #2a2a4e; }
+#dpad .up { grid-column: 2; grid-row: 1; }
+#dpad .left { grid-column: 1; grid-row: 2; }
+#dpad .center { grid-column: 2; grid-row: 2; background: transparent; border: none; }
+#dpad .right { grid-column: 3; grid-row: 2; }
+#dpad .down { grid-column: 2; grid-row: 3; }
+#action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#action-buttons button {
+  background: #1a1a2e;
+  color: #d4af37;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 10px 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#action-buttons button:active { background: #2a2a4e; }
+#inventory-screen {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.92);
+  z-index: 100;
+  padding: 20px;
+  overflow-y: auto;
+}
+#inventory-screen h2 {
+  color: #d4af37;
+  text-align: center;
+  margin-bottom: 15px;
+}
+#inventory-screen .inv-section {
+  margin-bottom: 20px;
+}
+#inventory-screen .inv-section h3 {
+  color: #8a7a4a;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 4px;
+}
+#inventory-screen .inv-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: #111;
+  border: 1px solid #2a2a3a;
+  border-radius: 3px;
+  margin-bottom: 4px;
+  font-size: 0.85em;
+}
+#inventory-screen .inv-item .use-btn {
+  background: #2a2a4e;
+  color: #d4af37;
+  border: 1px solid #555;
+  padding: 2px 10px;
+  cursor: pointer;
+  border-radius: 2px;
+  font-size: 0.85em;
+}
+#inventory-screen .inv-item .use-btn:hover { background: #3a3a6e; }
+#inventory-screen .equipment-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+#inventory-screen .equip-slot {
+  background: #111;
+  border: 1px solid #444;
+  border-radius: 3px;
+  padding: 8px;
+  text-align: center;
+  font-size: 0.8em;
+}
+#inventory-screen .equip-slot .slot-label { color: #6a6a5a; font-size: 0.75em; }
+#inventory-screen .equip-slot .slot-item { color: #d4af37; margin-top: 4px; }
+#inventory-screen .close-btn {
+  display: block;
+  margin: 20px auto 0;
+}
+#level-up-screen {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.92);
+  z-index: 100;
+  padding: 30px;
+  text-align: center;
+  overflow-y: auto;
+}
+#level-up-screen h2 { color: #44aaff; margin-bottom: 8px; }
+#level-up-screen p { color: #888; margin-bottom: 20px; }
+#level-up-screen .upgrade-choice {
+  background: #111;
+  border: 2px solid #333;
+  border-radius: 5px;
+  padding: 15px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+#level-up-screen .upgrade-choice:hover { border-color: #d4af37; }
+#level-up-screen .upgrade-choice .uc-name { color: #d4af37; font-size: 1.1em; margin-bottom: 4px; }
+#level-up-screen .upgrade-choice .uc-desc { color: #888; font-size: 0.85em; }
+#death-screen {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.95);
+  z-index: 200;
+  padding: 40px;
+  text-align: center;
+}
+#death-screen h1 { color: #ff3333; font-size: 2em; margin-bottom: 15px; text-shadow: 0 0 15px rgba(255,50,50,0.5); }
+#death-screen .death-stats { color: #aaa; font-size: 1em; line-height: 1.8; margin-bottom: 25px; }
+#death-screen .death-stats span { color: #d4af37; }
+#shop-screen {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.92);
+  z-index: 100;
+  padding: 20px;
+  overflow-y: auto;
+}
+#shop-screen h2 { color: #d4af37; text-align: center; margin-bottom: 8px; }
+#shop-screen .shop-gold { text-align: center; color: #d4af37; font-size: 1.2em; margin-bottom: 20px; }
+#shop-screen .shop-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #111;
+  border: 1px solid #2a2a3a;
+  border-radius: 4px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+}
+#shop-screen .shop-item .si-info { flex: 1; }
+#shop-screen .shop-item .si-name { color: #d4af37; }
+#shop-screen .shop-item .si-desc { color: #888; font-size: 0.8em; }
+#shop-screen .shop-item .si-price { color: #d4af37; margin-right: 10px; }
+#shop-screen .shop-item .buy-btn {
+  background: #1a1a2e;
+  color: #d4af37;
+  border: 1px solid #555;
+  padding: 4px 12px;
+  cursor: pointer;
+  border-radius: 2px;
+}
+#shop-screen .shop-item .buy-btn:hover { background: #2a2a4e; }
+#shop-screen .shop-item .buy-btn:disabled { color: #555; border-color: #333; cursor: not-allowed; }
+#shop-screen .close-btn { display: block; margin: 20px auto 0; }
+.save-indicator {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background: #111;
+  color: #66ff66;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 0.75em;
+  border: 1px solid #333;
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 300;
+}
+.save-indicator.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="game-container">
+
+<!-- TITLE SCREEN -->
+<div id="title-screen">
+  <h1>SALVAGER'S QUEST</h1>
+  <h2>A Roguelike Dungeon Crawler</h2>
+  <div class="instructions">
+    <h3>How to Play</h3>
+    • Use arrow keys / WASD or the D-pad to move<br>
+    • Move into enemies to attack them<br>
+    • Find the stairs <span style="color:#d4af37">▶</span> to descend deeper<br>
+    • Collect gold, potions, and gear<br>
+    • Level up to choose powerful upgrades<br>
+    • Visit the Merchant <span style="color:#44aaff">M</span> to buy items<br>
+    • Find the Amulet on Floor 20 to win!<br>
+    • Death is permanent — choose wisely<br><br>
+    <span style="color:#6a6a5a">Progress auto-saves locally.</span>
+  </div>
+  <button class="btn" id="start-btn">ENTER THE DUNGEON</button>
+  <br><br>
+  <button class="btn" id="continue-btn" style="display:none;">CONTINUE ADVENTURE</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen">
+  <div id="hud">
+    <div class="stat">HP <span id="hud-hp">100</span>/<span id="hud-maxhp">100</span> <span class="hp-bar-container"><span class="hp-bar" id="hud-hpbar"></span></span></div>
+    <div class="stat">Lvl <span id="hud-level">1</span></div>
+    <div class="stat">XP <span class="xp-bar-container"><span class="xp-bar" id="hud-xpbar"></span></span></div>
+    <div class="stat">⬤ <span id="hud-gold">0</span></div>
+    <div class="stat">Floor <span id="hud-floor">1</span>/20</div>
+  </div>
+  <div id="canvas-wrapper">
+    <canvas id="game-canvas"></canvas>
+  </div>
+  <div id="message-log"></div>
+  <div id="controls">
+    <div id="dpad">
+      <button class="up" data-dir="up">▲</button>
+      <button class="left" data-dir="left">◀</button>
+      <div class="center"></div>
+      <button class="right" data-dir="right">▶</button>
+      <button class="down" data-dir="down">▼</button>
+    </div>
+    <div id="action-buttons">
+      <button id="btn-inventory">🎒 Inventory</button>
+      <button id="btn-wait">⏸ Wait</button>
+    </div>
+  </div>
+</div>
+
+<!-- INVENTORY SCREEN -->
+<div id="inventory-screen">
+  <h2>🎒 INVENTORY</h2>
+  <div class="inv-section">
+    <h3>EQUIPMENT</h3>
+    <div class="equipment-grid" id="equip-grid"></div>
+  </div>
+  <div class="inv-section">
+    <h3>ITEMS</h3>
+    <div id="inv-items"></div>
+  </div>
+  <button class="btn close-btn" id="inv-close">CLOSE</button>
+</div>
+
+<!-- LEVEL UP SCREEN -->
+<div id="level-up-screen">
+  <h2>⬆ LEVEL UP!</h2>
+  <p>Choose an upgrade:</p>
+  <div id="upgrade-choices"></div>
+</div>
+
+<!-- SHOP SCREEN -->
+<div id="shop-screen">
+  <h2>🏪 THE MERCHANT</h2>
+  <div class="shop-gold">Your Gold: <span id="shop-gold">0</span> ⬤</div>
+  <div id="shop-items"></div>
+  <button class="btn close-btn" id="shop-close">LEAVE</button>
+</div>
+
+<!-- DEATH SCREEN -->
+<div id="death-screen">
+  <h1>YOU DIED</h1>
+  <div class="death-stats" id="death-stats"></div>
+  <button class="btn" id="restart-btn">TRY AGAIN</button>
+</div>
+
+<div class="save-indicator" id="save-indicator">✓ Saved</div>
+
+</div>
+
+<script>
+// =============================================
+// SALVAGER'S QUEST — A Roguelike Dungeon Crawler
+// =============================================
+
+const GAME = {
+  // Display
+  TILE_SIZE: 24,
+  MAP_W: 32,
+  MAP_H: 22,
+  
+  // Game state
+  player: null,
+  map: null,
+  enemies: [],
+  items: [],
+  stairs: null,
+  merchant: null,
+  floor: 1,
+  maxFloor: 20,
+  
+  // Rendering
+  canvas: null,
+  ctx: null,
+  
+  // Input
+  lastAction: 0,
+  
+  // Messages
+  messages: [],
+  
+  // Stats
+  kills: 0,
+  goldFound: 0,
+  startedAt: 0,
+  
+  // Tile types
+  WALL: 0,
+  FLOOR: 1,
+  DOOR: 2,
+  STAIRS: 3,
+  MERCHANT: 4,
+  
+  init() {
+    this.canvas = document.getElementById('game-canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.canvas.width = this.MAP_W * this.TILE_SIZE;
+    this.canvas.height = this.MAP_H * this.TILE_SIZE;
+    
+    // Check for save
+    if (this.loadGame()) {
+      document.getElementById('continue-btn').style.display = '';
+    }
+  },
+  
+  startNewGame() {
+    this.player = {
+      x: 0, y: 0,
+      hp: 100, maxHp: 100,
+      atk: 12,
+      def: 3,
+      level: 1,
+      xp: 0,
+      xpNeeded: 50,
+      gold: 0,
+      inventory: [],
+      equipment: { weapon: null, armor: null, ring: null, amulet: null },
+      hasAmulet: false,
+    };
+    this.floor = 1;
+    this.kills = 0;
+    this.goldFound = 0;
+    this.startedAt = Date.now();
+    this.messages = [];
+    this.generateFloor();
+    this.showGameScreen();
+    this.log("You enter the dungeon of the Forgotten Keep...", 'new');
+    this.log("Reach floor 20 to find the Amulet of Salvation!", 'level');
+  },
+  
+  // ===================== DUNGEON GENERATION =====================
+  generateFloor() {
+    const w = this.MAP_W;
+    const h = this.MAP_H;
+    
+    // Initialize all walls
+    this.map = [];
+    for (let y = 0; y < h; y++) {
+      this.map[y] = [];
+      for (let x = 0; x < w; x++) {
+        this.map[y][x] = this.WALL;
+      }
+    }
+    
+    // Generate rooms using BSP-ish approach
+    const rooms = [];
+    const numRooms = 5 + Math.floor(Math.random() * 4) + Math.floor(this.floor / 3);
+    const minSize = 4;
+    const maxSize = 9;
+    
+    for (let i = 0; i < numRooms * 3; i++) {
+      if (rooms.length >= numRooms) break;
+      
+      const rw = minSize + Math.floor(Math.random() * (maxSize - minSize));
+      const rh = minSize + Math.floor(Math.random() * (maxSize - minSize));
+      const rx = 1 + Math.floor(Math.random() * (w - rw - 2));
+      const ry = 1 + Math.floor(Math.random() * (h - rh - 2));
+      
+      // Check overlap
+      let overlaps = false;
+      for (const room of rooms) {
+        if (rx < room.x + room.w + 1 && rx + rw + 1 > room.x &&
+            ry < room.y + room.h + 1 && ry + rh + 1 > room.y) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (overlaps) continue;
+      
+      rooms.push({ x: rx, y: ry, w: rw, h: rh, cx: Math.floor(rx + rw/2), cy: Math.floor(ry + rh/2) });
+      
+      // Carve room
+      for (let y = ry; y < ry + rh; y++) {
+        for (let x = rx; x < rx + rw; x++) {
+          this.map[y][x] = this.FLOOR;
+        }
+      }
+    }
+    
+    // Connect rooms with corridors
+    for (let i = 1; i < rooms.length; i++) {
+      const prev = rooms[i - 1];
+      const curr = rooms[i];
+      
+      // L-shaped corridor
+      if (Math.random() < 0.5) {
+        this.carveH(prev.cx, curr.cx, prev.cy);
+        this.carveV(prev.cy, curr.cy, curr.cx);
+      } else {
+        this.carveV(prev.cy, curr.cy, prev.cx);
+        this.carveH(prev.cx, curr.cx, curr.cy);
+      }
+    }
+    
+    // Place player in first room
+    this.player.x = rooms[0].cx;
+    this.player.y = rooms[0].cy;
+    
+    // Place stairs in last room (or amulet on floor 20)
+    if (this.floor >= this.maxFloor) {
+      // Place the Amulet
+      this.items.push({
+        type: 'amulet',
+        x: rooms[rooms.length - 1].cx,
+        y: rooms[rooms.length - 1].cy,
+        name: 'Amulet of Salvation',
+      });
+    } else {
+      this.stairs = { x: rooms[rooms.length - 1].cx, y: rooms[rooms.length - 1].cy };
+      this.map[this.stairs.y][this.stairs.x] = this.STAIRS;
+    }
+    
+    // Place merchant (50% chance, not on floor 1 or 20)
+    this.merchant = null;
+    if (this.floor > 1 && this.floor < this.maxFloor && Math.random() < 0.5) {
+      const mr = rooms[Math.floor(rooms.length / 2)];
+      this.merchant = { x: mr.cx, y: mr.cy };
+      this.map[this.merchant.y][this.merchant.x] = this.MERCHANT;
+    }
+    
+    // Generate enemies
+    this.enemies = [];
+    const numEnemies = 3 + Math.floor(this.floor * 0.8) + Math.floor(Math.random() * 3);
+    const availableTiles = this.getFloorTiles(rooms);
+    
+    for (let i = 0; i < numEnemies && availableTiles.length > 0; i++) {
+      const idx = Math.floor(Math.random() * availableTiles.length);
+      const tile = availableTiles.splice(idx, 1)[0];
+      
+      // Don't spawn near player
+      if (Math.abs(tile.x - this.player.x) < 4 && Math.abs(tile.y - this.player.y) < 4) {
+        i--;
+        continue;
+      }
+      if (this.stairs && tile.x === this.stairs.x && tile.y === this.stairs.y) continue;
+      if (this.merchant && tile.x === this.merchant.x && tile.y === this.merchant.y) continue;
+      
+      const enemy = this.createEnemy(tile.x, tile.y);
+      this.enemies.push(enemy);
+    }
+    
+    // Force spawn boss if not yet spawned (every 5 floors)
+    if (this.floor % 5 === 0 && !this.bossSpawned && this.stairs) {
+      const bossType = {
+        name: 'Dungeon Lord', hp: 120 + Math.floor(this.floor * 3), atk: 22 + Math.floor(this.floor * 1.5),
+        def: 6, xp: 80, gold: 50, glyph: 'L', color: '#ff4444', speed: 1, boss: true
+      };
+      // Find a tile near stairs
+      for (let dy2 = -2; dy2 <= 2 && !this.bossSpawned; dy2++) {
+        for (let dx2 = -2; dx2 <= 2 && !this.bossSpawned; dx2++) {
+          const bx = this.stairs.x + dx2;
+          const by = this.stairs.y + dy2;
+          if (bx > 0 && bx < this.MAP_W && by > 0 && by < this.MAP_H &&
+              this.map[by][bx] === this.FLOOR &&
+              !(bx === this.player.x && by === this.player.y) &&
+              !this.enemies.some(e => e.x === bx && e.y === by)) {
+            this.bossSpawned = true;
+            this.enemies.push({ ...bossType, x: bx, y: by, maxHp: bossType.hp, hp: bossType.hp, moveCooldown: 0 });
+          }
+        }
+      }
+    }
+    
+    // Generate items
+    this.bossSpawned = false;
+    this.items = this.items.filter(i => i.type === 'amulet'); // Keep amulet if placed
+    const numItems = 1 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < numItems && availableTiles.length > 0; i++) {
+      const idx = Math.floor(Math.random() * availableTiles.length);
+      const tile = availableTiles.splice(idx, 1)[0];
+      
+      if (this.stairs && tile.x === this.stairs.x && tile.y === this.stairs.y) continue;
+      if (this.merchant && tile.x === this.merchant.x && tile.y === this.merchant.y) continue;
+      
+      this.items.push(this.createItem(tile.x, tile.y));
+    }
+    
+    this.updateHUD();
+    this.render();
+  },
+  
+  carveH(x1, x2, y) {
+    for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) {
+      if (this.map[y][x] === this.WALL) this.map[y][x] = this.FLOOR;
+    }
+  },
+  carveV(y1, y2, x) {
+    for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++) {
+      if (this.map[y][x] === this.WALL) this.map[y][x] = this.FLOOR;
+    }
+  },
+  
+  getFloorTiles(rooms) {
+    const tiles = [];
+    for (let y = 0; y < this.MAP_H; y++) {
+      for (let x = 0; x < this.MAP_W; x++) {
+        if (this.map[y][x] === this.FLOOR) {
+          tiles.push({ x, y });
+        }
+      }
+    }
+    return tiles;
+  },
+  
+  // ===================== ENEMY TYPES =====================
+  createEnemy(x, y) {
+    const floorBonus = Math.floor(this.floor * 1.5);
+    const types = [
+      { name: 'Giant Rat', hp: 15 + floorBonus, atk: 4 + Math.floor(floorBonus/2), def: 0, xp: 8, gold: 2, glyph: 'r', color: '#8b6914', speed: 1 },
+      { name: 'Goblin', hp: 25 + floorBonus, atk: 6 + Math.floor(floorBonus/2), def: 1, xp: 12, gold: 5, glyph: 'g', color: '#4a7a3a', speed: 1 },
+      { name: 'Skeleton', hp: 30 + floorBonus, atk: 8 + Math.floor(floorBonus/2), def: 2, xp: 15, gold: 7, glyph: 's', color: '#cccccc', speed: 1 },
+      { name: 'Zombie', hp: 40 + floorBonus, atk: 7 + Math.floor(floorBonus/2), def: 1, xp: 14, gold: 4, glyph: 'z', color: '#5a7a4a', speed: 0.5 },
+      { name: 'Orc Warrior', hp: 50 + floorBonus, atk: 12 + Math.floor(floorBonus/2), def: 3, xp: 22, gold: 12, glyph: 'o', color: '#3a5a2a', speed: 1 },
+      { name: 'Dark Mage', hp: 35 + floorBonus, atk: 16 + Math.floor(floorBonus/2), def: 2, xp: 28, gold: 18, glyph: 'm', color: '#6a3a8a', speed: 1, ranged: true },
+      { name: 'Troll', hp: 80 + floorBonus, atk: 15 + Math.floor(floorBonus/2), def: 5, xp: 35, gold: 20, glyph: 'T', color: '#5a6a3a', speed: 0.5, regen: 3 },
+      { name: 'Wraith', hp: 45 + floorBonus, atk: 14 + Math.floor(floorBonus/2), def: 3, xp: 30, gold: 15, glyph: 'w', color: '#8a8aaa', speed: 1, phases: true },
+      { name: 'Demon', hp: 70 + floorBonus, atk: 18 + Math.floor(floorBonus/2), def: 4, xp: 40, gold: 25, glyph: 'd', color: '#aa3a3a', speed: 1 },
+      { name: 'Dungeon Lord', hp: 120 + floorBonus * 2, atk: 22 + floorBonus, def: 6, xp: 80, gold: 50, glyph: 'L', color: '#ff4444', speed: 1, boss: true },
+    ];
+    
+    // Pick enemy based on floor
+    let availableTypes;
+    if (this.floor <= 2) {
+      availableTypes = types.slice(0, 3); // rat, goblin, skeleton
+    } else if (this.floor <= 5) {
+      availableTypes = types.slice(0, 5); // + zombie, orc
+    } else if (this.floor <= 8) {
+      availableTypes = types.slice(0, 7); // + mage, troll
+    } else if (this.floor <= 12) {
+      availableTypes = types.slice(0, 9); // + wraith, demon
+    } else {
+      availableTypes = types.slice(0, 10); // all
+    }
+    
+    // Boss every 5 floors - only one boss, placed near stairs
+    if (this.floor % 5 === 0 && !this.bossSpawned && this.stairs) {
+      const distToStairs = Math.abs(x - this.stairs.x) + Math.abs(y - this.stairs.y);
+      if (distToStairs <= 3) {
+        this.bossSpawned = true;
+        const bossType = types[9];
+        return {
+          ...bossType,
+          x, y,
+          maxHp: bossType.hp,
+          hp: bossType.hp,
+          name: 'Dungeon Lord',
+          boss: true,
+          moveCooldown: 0,
+        };
+      }
+    }
+    
+    const type = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+    return {
+      ...type,
+      x, y,
+      maxHp: type.hp,
+      hp: type.hp,
+      moveCooldown: 0,
+    };
+  },
+  
+  // ===================== ITEM TYPES =====================
+  createItem(x, y) {
+    const types = [
+      { type: 'potion_heal', name: 'Health Potion', glyph: '!', color: '#ff3333', effect: { heal: 40 }, stackable: true },
+      { type: 'potion_greater', name: 'Greater Health Potion', glyph: '!', color: '#ff6666', effect: { heal: 80 }, stackable: true },
+      { type: 'potion_str', name: 'Potion of Strength', glyph: '!', color: '#ffaa33', effect: { str: 3 }, stackable: true },
+      { type: 'potion_def', name: 'Potion of Defense', glyph: '!', color: '#33aaff', effect: { def: 2 }, stackable: true },
+      { type: 'potion_full', name: 'Elixir of Life', glyph: '!', color: '#ff44ff', effect: { fullHeal: true }, stackable: true },
+      { type: 'weapon', name: 'Sword', glyph: ')', color: '#cccccc', slot: 'weapon' },
+      { type: 'weapon', name: 'Battle Axe', glyph: ')', color: '#cc9933', slot: 'weapon' },
+      { type: 'weapon', name: 'War Hammer', glyph: ')', color: '#996633', slot: 'weapon' },
+      { type: 'weapon', name: 'Enchanted Blade', glyph: ')', color: '#6644ff', slot: 'weapon' },
+      { type: 'armor', name: 'Leather Armor', glyph: '[', color: '#886633', slot: 'armor' },
+      { type: 'armor', name: 'Chain Mail', glyph: '[', color: '#aaaaaa', slot: 'armor' },
+      { type: 'armor', name: 'Plate Armor', glyph: '[', color: '#dddddd', slot: 'armor' },
+      { type: 'armor', name: 'Dragon Scale', glyph: '[', color: '#aa3333', slot: 'armor' },
+      { type: 'ring', name: 'Ring of Power', glyph: '=', color: '#ff4444', slot: 'ring' },
+      { type: 'ring', name: 'Ring of Vitality', glyph: '=', color: '#44ff44', slot: 'ring' },
+      { type: 'ring', name: 'Ring of Warding', glyph: '=', color: '#4444ff', slot: 'ring' },
+      { type: 'gold', name: 'Gold', glyph: '$', color: '#d4af37' },
+    ];
+    
+    // Weight selection by floor
+    let pool;
+    if (this.floor <= 3) {
+      pool = types.slice(0, 6); // basic potions + gold
+    } else if (this.floor <= 6) {
+      pool = types.slice(0, 10); // + basic weapons + leather armor
+    } else if (this.floor <= 10) {
+      pool = types; // everything except maybe dragon
+    } else {
+      pool = types; // everything
+    }
+    
+    const type = pool[Math.floor(Math.random() * pool.length)];
+    const item = { ...type, x, y };
+    
+    // Generate stats for weapons/armor
+    if (type.type === 'weapon') {
+      const tier = Math.floor(this.floor / 3);
+      item.bonus = { atk: 2 + tier + Math.floor(Math.random() * 3) };
+    } else if (type.type === 'armor') {
+      const tier = Math.floor(this.floor / 3);
+      item.bonus = { def: 1 + tier + Math.floor(Math.random() * 2) };
+    } else if (type.type === 'ring') {
+      const tier = Math.floor(this.floor / 4);
+      if (type.name.includes('Power')) item.bonus = { atk: 2 + tier };
+      if (type.name.includes('Vitality')) item.bonus = { maxHp: 15 + tier * 5 };
+      if (type.name.includes('Warding')) item.bonus = { def: 1 + tier };
+    } else if (type.type === 'gold') {
+      item.amount = 5 + Math.floor(Math.random() * 10) + this.floor * 2;
+    }
+    
+    return item;
+  },
+  
+  // ===================== COMBAT =====================
+  attack(attacker, defender, isPlayer) {
+    let dmg = Math.max(1, attacker.atk - defender.def + Math.floor(Math.random() * 5) - 2);
+    
+    // Crit chance
+    if (Math.random() < 0.15) {
+      dmg = Math.floor(dmg * 2);
+      this.log(`Critical hit! ${dmg} damage!`, 'damage');
+    }
+    
+    defender.hp -= dmg;
+    
+    if (isPlayer) {
+      this.log(`You hit the ${defender.name} for ${dmg} damage!`, 'damage');
+    } else {
+      this.log(`The ${attacker.name} hits you for ${dmg} damage!`, 'damage');
+    }
+    
+    if (defender.hp <= 0) {
+      if (isPlayer) {
+        this.kills++;
+        this.player.gold += defender.gold;
+        this.goldFound += defender.gold;
+        this.log(`You defeated the ${defender.name}! +${defender.xp} XP, +${defender.gold} gold`, 'loot');
+        this.gainXP(defender.xp);
+        
+        // Boss drop
+        if (defender.boss) {
+          this.log(`The Dungeon Lord crumbles! A powerful item falls...`, 'loot');
+          const drop = this.createItem(defender.x, defender.y);
+          // Upgrade the drop
+          if (drop.bonus) {
+            for (const key in drop.bonus) drop.bonus[key] += 3;
+          }
+          drop.name = 'Legendary ' + drop.name;
+          this.items.push(drop);
+        }
+      } else {
+        this.playerDeath();
+      }
+      return true;
+    }
+    return false;
+  },
+  
+  gainXP(amount) {
+    this.player.xp += amount;
+    while (this.player.xp >= this.player.xpNeeded) {
+      this.player.xp -= this.player.xpNeeded;
+      this.player.level++;
+      this.player.xpNeeded = Math.floor(this.player.xpNeeded * 1.4);
+      this.showLevelUp();
+    }
+    this.updateHUD();
+  },
+  
+  showLevelUp() {
+    const screen = document.getElementById('level-up-screen');
+    const choices = document.getElementById('upgrade-choices');
+    choices.innerHTML = '';
+    
+    const upgrades = [
+      { name: 'Warrior', desc: '+8 Max HP, +3 Attack', apply: () => { this.player.maxHp += 8; this.player.hp += 8; this.player.atk += 3; } },
+      { name: 'Guardian', desc: '+10 Max HP, +2 Defense', apply: () => { this.player.maxHp += 10; this.player.hp += 10; this.player.def += 2; } },
+      { name: 'Berserker', desc: '+5 Attack, +15% Crit Chance', apply: () => { this.player.atk += 5; this.player.critChance = (this.player.critChance || 0.15) + 0.15; } },
+      { name: 'Knight', desc: '+4 Attack, +1 Defense, +5 Max HP', apply: () => { this.player.atk += 4; this.player.def += 1; this.player.maxHp += 5; this.player.hp += 5; } },
+      { name: 'Scholar', desc: '+20 Max HP, heal to full', apply: () => { this.player.maxHp += 20; this.player.hp = this.player.maxHp; } },
+      { name: 'Vampiric', desc: '+3 Attack, heal 5 HP on kill', apply: () => { this.player.atk += 3; this.player.lifesteal = (this.player.lifesteal || 0) + 5; } },
+    ];
+    
+    // Pick 3 random
+    const shuffled = upgrades.sort(() => Math.random() - 0.5);
+    const picked = shuffled.slice(0, 3);
+    
+    picked.forEach(upg => {
+      const div = document.createElement('div');
+      div.className = 'upgrade-choice';
+      div.innerHTML = `<div class="uc-name">${upg.name}</div><div class="uc-desc">${upg.desc}</div>`;
+      div.onclick = () => {
+        upg.apply();
+        this.log(`Level up! Chose ${upg.name}!`, 'level');
+        screen.style.display = 'none';
+        this.updateHUD();
+        this.render();
+        this.saveGame();
+      };
+      choices.appendChild(div);
+    });
+    
+    screen.style.display = 'block';
+  },
+  
+  // ===================== MOVEMENT =====================
+  movePlayer(dx, dy) {
+    const nx = this.player.x + dx;
+    const ny = this.player.y + dy;
+    
+    if (nx < 0 || nx >= this.MAP_W || ny < 0 || ny >= this.MAP_H) return;
+    
+    const tile = this.map[ny][nx];
+    
+    // Check for enemy
+    const enemy = this.enemies.find(e => e.x === nx && e.y === ny);
+    if (enemy) {
+      const killed = this.attack(this.player, enemy, true);
+      if (killed) {
+        // Lifesteal
+        if (this.player.lifesteal) {
+          this.player.hp = Math.min(this.player.maxHp, this.player.hp + this.player.lifesteal);
+        }
+        this.enemies = this.enemies.filter(e => e !== enemy);
+      }
+      this.enemyTurn();
+      return;
+    }
+    
+    // Wall
+    if (tile === this.WALL) return;
+    
+    // Stairs
+    if (tile === this.STAIRS) {
+      this.floor++;
+      if (this.floor > this.maxFloor) {
+        this.victory();
+        return;
+      }
+      this.log(`Descending to floor ${this.floor}...`, 'level');
+      this.generateFloor();
+      this.saveGame();
+      return;
+    }
+    
+    // Merchant
+    if (tile === this.MERCHANT) {
+      this.openShop();
+      return;
+    }
+    
+    // Move
+    this.player.x = nx;
+    this.player.y = ny;
+    
+    // Pick up items
+    const item = this.items.find(i => i.x === nx && i.y === ny && i.type !== 'amulet');
+    if (item) {
+      this.pickupItem(item);
+    }
+    
+    // Amulet
+    const amulet = this.items.find(i => i.x === nx && i.y === ny && i.type === 'amulet');
+    if (amulet) {
+      this.player.hasAmulet = true;
+      this.items = this.items.filter(i => i !== amulet);
+      this.log('You found the Amulet of Salvation! Escape the dungeon!', 'level');
+      // Place exit stairs
+      this.stairs = { x: 1, y: 1 };
+      // Place stairs near player
+      for (let dy2 = -1; dy2 <= 1; dy2++) {
+        for (let dx2 = -1; dx2 <= 1; dx2++) {
+          const tx = nx + dx2;
+          const ty = ny + dy2;
+          if (tx > 0 && tx < this.MAP_W && ty > 0 && ty < this.MAP_H && this.map[ty][tx] === this.FLOOR) {
+            this.stairs = { x: tx, y: ty };
+            this.map[ty][tx] = this.STAIRS;
+            break;
+          }
+        }
+      }
+    }
+    
+    this.enemyTurn();
+    this.updateHUD();
+    this.render();
+    this.saveGame();
+  },
+  
+  enemyTurn() {
+    for (const enemy of this.enemies) {
+      if (enemy.hp <= 0) continue;
+      
+      // Regen
+      if (enemy.regen) {
+        enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.regen);
+      }
+      
+      // Speed check
+      if (enemy.speed < 1) {
+        enemy.moveCooldown += enemy.speed;
+        if (enemy.moveCooldown < 1) continue;
+        enemy.moveCooldown = 0;
+      }
+      
+      const dist = Math.abs(enemy.x - this.player.x) + Math.abs(enemy.y - this.player.y);
+      
+      // Ranged attack
+      if (enemy.ranged && dist <= 5 && Math.random() < 0.6) {
+        const dmg = Math.max(1, Math.floor(enemy.atk * 0.7) - this.player.def + Math.floor(Math.random() * 3));
+        this.player.hp -= dmg;
+        this.log(`The ${enemy.name} casts a spell for ${dmg} damage!`, 'damage');
+        if (this.player.hp <= 0) {
+          this.playerDeath();
+          return;
+        }
+        continue;
+      }
+      
+      // Adjacent - attack
+      if (dist === 1) {
+        const killed = this.attack(enemy, this.player, false);
+        if (killed) return;
+        continue;
+      }
+      
+      // Move toward player (simple AI)
+      if (dist <= 7) {
+        const dx = Math.sign(this.player.x - enemy.x);
+        const dy = Math.sign(this.player.y - enemy.y);
+        
+        // Try moving in the direction with greater distance
+        let moves = [];
+        if (Math.abs(this.player.x - enemy.x) >= Math.abs(this.player.y - enemy.y)) {
+          if (dx !== 0) moves.push({ x: dx, y: 0 });
+          if (dy !== 0) moves.push({ x: 0, y: dy });
+        } else {
+          if (dy !== 0) moves.push({ x: 0, y: dy });
+          if (dx !== 0) moves.push({ x: dx, y: 0 });
+        }
+        
+        for (const move of moves) {
+          const nx = enemy.x + move.x;
+          const ny = enemy.y + move.y;
+          
+          if (nx < 0 || nx >= this.MAP_W || ny < 0 || ny >= this.MAP_H) continue;
+          if (this.map[ny][nx] === this.WALL) continue;
+          
+          // Don't walk into player or other enemies
+          if (nx === this.player.x && ny === this.player.y) {
+            const killed = this.attack(enemy, this.player, false);
+            if (killed) return;
+            break;
+          }
+          if (this.enemies.some(e => e !== enemy && e.x === nx && e.y === ny)) continue;
+          
+          enemy.x = nx;
+          enemy.y = ny;
+          break;
+        }
+      }
+    }
+    
+    // Remove dead enemies
+    this.enemies = this.enemies.filter(e => e.hp > 0);
+    this.updateHUD();
+    this.render();
+  },
+  
+  wait() {
+    this.player.hp = Math.min(this.player.maxHp, this.player.hp + 1);
+    this.enemyTurn();
+    this.updateHUD();
+    this.render();
+  },
+  
+  // ===================== ITEMS =====================
+  pickupItem(item) {
+    if (item.type === 'gold') {
+      this.player.gold += item.amount;
+      this.goldFound += item.amount;
+      this.log(`Picked up ${item.amount} gold`, 'loot');
+    } else {
+      this.player.inventory.push({
+        ...item,
+        x: undefined, y: undefined,
+      });
+      this.log(`Picked up ${item.name}`, 'loot');
+    }
+    this.items = this.items.filter(i => i !== item);
+  },
+  
+  useItem(item) {
+    if (item.effect) {
+      if (item.effect.heal) {
+        const heal = item.effect.heal;
+        this.player.hp = Math.min(this.player.maxHp, this.player.hp + heal);
+        this.log(`You drink ${item.name}. +${heal} HP`, 'heal');
+      }
+      if (item.effect.fullHeal) {
+        this.player.hp = this.player.maxHp;
+        this.log(`You drink ${item.name}. Fully healed!`, 'heal');
+      }
+      if (item.effect.str) {
+        this.player.atk += item.effect.str;
+        this.log(`You drink ${item.name}. +${item.effect.str} Attack`, 'heal');
+      }
+      if (item.effect.def) {
+        this.player.def += item.effect.def;
+        this.log(`You drink ${item.name}. +${item.effect.def} Defense`, 'heal');
+      }
+      
+      // Remove from inventory
+      const idx = this.player.inventory.indexOf(item);
+      if (idx >= 0) this.player.inventory.splice(idx, 1);
+    } else if (item.slot) {
+      // Equip
+      const slot = item.slot;
+      const old = this.player.equipment[slot];
+      
+      // Remove old equipment bonuses
+      if (old) {
+        if (old.bonus) {
+          if (old.bonus.atk) this.player.atk -= old.bonus.atk;
+          if (old.bonus.def) this.player.def -= old.bonus.def;
+          if (old.bonus.maxHp) {
+            this.player.maxHp -= old.bonus.maxHp;
+            this.player.hp = Math.min(this.player.hp, this.player.maxHp);
+          }
+        }
+        this.player.inventory.push(old);
+      }
+      
+      // Add new equipment bonuses
+      this.player.equipment[slot] = item;
+      if (item.bonus) {
+        if (item.bonus.atk) this.player.atk += item.bonus.atk;
+        if (item.bonus.def) this.player.def += item.bonus.def;
+        if (item.bonus.maxHp) {
+          this.player.maxHp += item.bonus.maxHp;
+          this.player.hp += item.bonus.maxHp;
+        }
+      }
+      
+      // Remove from inventory
+      const idx = this.player.inventory.indexOf(item);
+      if (idx >= 0) this.player.inventory.splice(idx, 1);
+      
+      this.log(`Equipped ${item.name}`, 'loot');
+    }
+    
+    this.updateInventory();
+    this.updateHUD();
+    this.saveGame();
+  },
+  
+  // ===================== SHOP =====================
+  openShop() {
+    const screen = document.getElementById('shop-screen');
+    const itemsDiv = document.getElementById('shop-items');
+    document.getElementById('shop-gold').textContent = this.player.gold;
+    itemsDiv.innerHTML = '';
+    
+    // Generate shop items
+    const shopItems = [];
+    for (let i = 0; i < 5; i++) {
+      const item = this.createItem(0, 0);
+      const price = this.calcItemPrice(item);
+      item.price = price;
+      shopItems.push(item);
+    }
+    
+    shopItems.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'shop-item';
+      let desc = '';
+      if (item.bonus) {
+        desc = Object.entries(item.bonus).map(([k, v]) => `+${v} ${k}`).join(', ');
+      } else if (item.effect) {
+        if (item.effect.heal) desc = `Heals ${item.effect.heal} HP`;
+        if (item.effect.fullHeal) desc = 'Full heal';
+        if (item.effect.str) desc = `+${item.effect.str} Attack`;
+        if (item.effect.def) desc = `+${item.effect.def} Defense`;
+      }
+      
+      div.innerHTML = `
+        <div class="si-info">
+          <div class="si-name">${item.name}</div>
+          <div class="si-desc">${desc || 'A useful item'}</div>
+        </div>
+        <div class="si-price">${item.price} ⬤</div>
+        <button class="buy-btn" ${this.player.gold < item.price ? 'disabled' : ''}>Buy</button>
+      `;
+      
+      div.querySelector('.buy-btn').onclick = () => {
+        if (this.player.gold >= item.price) {
+          this.player.gold -= item.price;
+          this.player.inventory.push(item);
+          this.log(`Bought ${item.name} for ${item.price} gold`, 'loot');
+          document.getElementById('shop-gold').textContent = this.player.gold;
+          div.querySelector('.buy-btn').disabled = true;
+          div.querySelector('.buy-btn').textContent = 'Sold';
+          this.updateHUD();
+          this.updateInventory();
+          this.saveGame();
+        }
+      };
+      
+      itemsDiv.appendChild(div);
+    });
+    
+    screen.style.display = 'block';
+  },
+  
+  calcItemPrice(item) {
+    let base = 10;
+    if (item.bonus) {
+      for (const v of Object.values(item.bonus)) base += v * 8;
+    }
+    if (item.effect) {
+      if (item.effect.heal) base = item.effect.heal * 0.8;
+      if (item.effect.fullHeal) base = 40;
+      if (item.effect.str) base = item.effect.str * 15;
+      if (item.effect.def) base = item.effect.def * 12;
+    }
+    return Math.floor(base) + 5;
+  },
+  
+  // ===================== INVENTORY UI =====================
+  updateInventory() {
+    const grid = document.getElementById('equip-grid');
+    grid.innerHTML = '';
+    
+    const slots = [
+      { key: 'weapon', label: 'Weapon' },
+      { key: 'armor', label: 'Armor' },
+      { key: 'ring', label: 'Ring' },
+      { key: 'amulet', label: 'Amulet' },
+    ];
+    
+    slots.forEach(slot => {
+      const div = document.createElement('div');
+      div.className = 'equip-slot';
+      const equipped = this.player.equipment[slot.key];
+      div.innerHTML = `<div class="slot-label">${slot.label}</div><div class="slot-item">${equipped ? equipped.name : '—'}</div>`;
+      grid.appendChild(div);
+    });
+    
+    const itemsDiv = document.getElementById('inv-items');
+    itemsDiv.innerHTML = '';
+    
+    if (this.player.inventory.length === 0) {
+      itemsDiv.innerHTML = '<div style="color:#555;text-align:center;padding:20px;">No items in inventory</div>';
+    } else {
+      this.player.inventory.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'inv-item';
+        let info = item.name;
+        if (item.bonus) {
+          info += ' (' + Object.entries(item.bonus).map(([k,v]) => `+${v} ${k}`).join(', ') + ')';
+        }
+        if (item.effect) {
+          if (item.effect.heal) info += ' (Heal ' + item.effect.heal + ')';
+          if (item.effect.fullHeal) info += ' (Full Heal)';
+          if (item.effect.str) info += ' (+STR)';
+          if (item.effect.def) info += ' (+DEF)';
+        }
+        div.innerHTML = `<span>${info}</span><button class="use-btn">Use</button>`;
+        div.querySelector('.use-btn').onclick = () => {
+          this.useItem(this.player.inventory[idx]);
+        };
+        itemsDiv.appendChild(div);
+      });
+    }
+  },
+  
+  // ===================== DEATH =====================
+  playerDeath() {
+    this.player.hp = 0;
+    const screen = document.getElementById('death-screen');
+    const stats = document.getElementById('death-stats');
+    const time = Math.floor((Date.now() - this.startedAt) / 1000);
+    const mins = Math.floor(time / 60);
+    const secs = time % 60;
+    
+    stats.innerHTML = `
+      You reached <span>Floor ${this.floor}</span> of ${this.maxFloor}<br>
+      Level: <span>${this.player.level}</span><br>
+      Enemies slain: <span>${this.kills}</span><br>
+      Gold collected: <span>${this.goldFound}</span> ⬤<br>
+      Time survived: <span>${mins}m ${secs}s</span><br><br>
+      <span style="color:#555;font-size:0.8em;">The dungeon claims another adventurer...</span>
+    `;
+    
+    screen.style.display = 'block';
+    localStorage.removeItem('salvagers_quest_save');
+  },
+  
+  victory() {
+    const screen = document.getElementById('death-screen');
+    const stats = document.getElementById('death-stats');
+    const time = Math.floor((Date.now() - this.startedAt) / 1000);
+    const mins = Math.floor(time / 60);
+    const secs = time % 60;
+    
+    screen.querySelector('h1').textContent = 'VICTORY!';
+    screen.querySelector('h1').style.color = '#44ff44';
+    stats.innerHTML = `
+      You escaped with the Amulet of Salvation!<br><br>
+      You reached <span>Floor ${this.maxFloor}</span><br>
+      Level: <span>${this.player.level}</span><br>
+      Enemies slain: <span>${this.kills}</span><br>
+      Gold collected: <span>${this.goldFound}</span> ⬤<br>
+      Time: <span>${mins}m ${secs}s</span><br><br>
+      <span style="color:#d4af37;">You are the Salvager of Legends!</span>
+    `;
+    
+    screen.style.display = 'block';
+    localStorage.removeItem('salvagers_quest_save');
+  },
+  
+  // ===================== RENDERING =====================
+  render() {
+    const ctx = this.ctx;
+    const ts = this.TILE_SIZE;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+    
+    // Clear
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
+    
+    // Calculate visible range (simple FOV)
+    const fovRadius = 8;
+    const px = this.player.x;
+    const py = this.player.y;
+    
+    // Draw map
+    for (let y = 0; y < this.MAP_H; y++) {
+      for (let x = 0; x < this.MAP_W; x++) {
+        const dist = Math.sqrt((x - px) ** 2 + (y - py) ** 2);
+        if (dist > fovRadius) continue;
+        
+        const tile = this.map[y][x];
+        const sx = x * ts;
+        const sy = y * ts;
+        
+        // Visibility dimming
+        const dim = Math.max(0.2, 1 - (dist / fovRadius) * 0.7);
+        
+        if (tile === this.WALL) {
+          ctx.fillStyle = `rgba(40, 40, 55, ${dim})`;
+          ctx.fillRect(sx, sy, ts, ts);
+          ctx.fillStyle = `rgba(25, 25, 35, ${dim})`;
+          ctx.fillRect(sx, sy, ts, 2);
+          ctx.fillRect(sx, sy, 2, ts);
+        } else if (tile === this.FLOOR) {
+          ctx.fillStyle = `rgba(20, 20, 28, ${dim})`;
+          ctx.fillRect(sx, sy, ts, ts);
+          // Floor detail
+          if ((x + y) % 2 === 0) {
+            ctx.fillStyle = `rgba(25, 25, 35, ${dim})`;
+            ctx.fillRect(sx + ts/4, sy + ts/4, ts/2, ts/2);
+          }
+        } else if (tile === this.STAIRS) {
+          ctx.fillStyle = `rgba(20, 20, 28, ${dim})`;
+          ctx.fillRect(sx, sy, ts, ts);
+          ctx.fillStyle = `rgba(212, 175, 55, ${dim})`;
+          ctx.font = `${ts - 4}px monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('▶', sx + ts/2, sy + ts/2);
+        } else if (tile === this.MERCHANT) {
+          ctx.fillStyle = `rgba(20, 20, 28, ${dim})`;
+          ctx.fillRect(sx, sy, ts, ts);
+          ctx.fillStyle = `rgba(68, 170, 255, ${dim})`;
+          ctx.font = `${ts - 4}px monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('M', sx + ts/2, sy + ts/2);
+        }
+      }
+    }
+    
+    // Draw items
+    for (const item of this.items) {
+      const dist = Math.sqrt((item.x - px) ** 2 + (item.y - py) ** 2);
+      if (dist > fovRadius) continue;
+      const dim = Math.max(0.3, 1 - (dist / fovRadius) * 0.7);
+      const sx = item.x * ts;
+      const sy = item.y * ts;
+      
+      ctx.fillStyle = `rgba(20, 20, 28, ${dim})`;
+      ctx.fillRect(sx, sy, ts, ts);
+      
+      ctx.fillStyle = item.color || '#d4af37';
+      ctx.globalAlpha = dim;
+      ctx.font = `${ts - 4}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(item.glyph || '?', sx + ts/2, sy + ts/2);
+      ctx.globalAlpha = 1;
+    }
+    
+    // Draw enemies
+    for (const enemy of this.enemies) {
+      const dist = Math.sqrt((enemy.x - px) ** 2 + (enemy.y - py) ** 2);
+      if (dist > fovRadius) continue;
+      const dim = Math.max(0.3, 1 - (dist / fovRadius) * 0.7);
+      const sx = enemy.x * ts;
+      const sy = enemy.y * ts;
+      
+      // Enemy body
+      ctx.fillStyle = enemy.color || '#ff3333';
+      ctx.globalAlpha = dim;
+      ctx.font = `bold ${ts - 4}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      if (enemy.boss) {
+        ctx.font = `bold ${ts}px monospace`;
+      }
+      
+      ctx.fillText(enemy.glyph || '?', sx + ts/2, sy + ts/2);
+      
+      // HP bar above enemy
+      if (enemy.hp < enemy.maxHp) {
+        const barW = ts - 4;
+        const barH = 3;
+        const barX = sx + 2;
+        const barY = sy - 2;
+        ctx.fillStyle = 'rgba(60, 0, 0, 0.8)';
+        ctx.fillRect(barX, barY, barW, barH);
+        ctx.fillStyle = '#ff3333';
+        ctx.fillRect(barX, barY, barW * (enemy.hp / enemy.maxHp), barH);
+      }
+      
+      ctx.globalAlpha = 1;
+    }
+    
+    // Draw player
+    const sx = px * ts;
+    const sy = py * ts;
+    ctx.fillStyle = '#d4af37';
+    ctx.font = `bold ${ts - 2}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('@', sx + ts/2, sy + ts/2);
+    
+    // Player glow
+    ctx.shadowColor = '#d4af37';
+    ctx.shadowBlur = 8;
+    ctx.fillText('@', sx + ts/2, sy + ts/2);
+    ctx.shadowBlur = 0;
+    
+    // Floor number watermark
+    ctx.fillStyle = 'rgba(50, 50, 60, 0.3)';
+    ctx.font = 'bold 48px monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`F${this.floor}`, w - 10, 10);
+  },
+  
+  // ===================== HUD =====================
+  updateHUD() {
+    document.getElementById('hud-hp').textContent = Math.max(0, Math.floor(this.player.hp));
+    document.getElementById('hud-maxhp').textContent = this.player.maxHp;
+    document.getElementById('hud-hpbar').style.width = Math.max(0, (this.player.hp / this.player.maxHp) * 100) + '%';
+    document.getElementById('hud-level').textContent = this.player.level;
+    document.getElementById('hud-xpbar').style.width = (this.player.xp / this.player.xpNeeded) * 100 + '%';
+    document.getElementById('hud-gold').textContent = this.player.gold;
+    document.getElementById('hud-floor').textContent = this.floor;
+  },
+  
+  // ===================== MESSAGE LOG =====================
+  log(text, type) {
+    this.messages.push({ text, type });
+    if (this.messages.length > 50) this.messages.shift();
+    
+    const logDiv = document.getElementById('message-log');
+    logDiv.innerHTML = this.messages.slice(-6).map(m => 
+      `<div class="msg-${m.type || ''}">${m.text}</div>`
+    ).join('');
+    logDiv.scrollTop = logDiv.scrollHeight;
+  },
+  
+  // ===================== SCREEN MANAGEMENT =====================
+  showGameScreen() {
+    document.getElementById('title-screen').style.display = 'none';
+    document.getElementById('game-screen').style.display = 'flex';
+    document.getElementById('game-screen').style.flexDirection = 'column';
+    document.getElementById('controls').style.display = 'flex';
+    this.render();
+  },
+  
+  // ===================== SAVE/LOAD =====================
+  saveGame() {
+    const save = {
+      player: this.player,
+      floor: this.floor,
+      kills: this.kills,
+      goldFound: this.goldFound,
+      startedAt: this.startedAt,
+      // Don't save the full map/enemies — regenerate on load
+      // Save just enough to restore state
+      mapSeed: this.floor, // Will regenerate same floor
+    };
+    try {
+      localStorage.setItem('salvagers_quest_save', JSON.stringify(save));
+      const ind = document.getElementById('save-indicator');
+      ind.classList.add('show');
+      setTimeout(() => ind.classList.remove('show'), 1500);
+    } catch(e) {}
+  },
+  
+  loadGame() {
+    try {
+      const data = localStorage.getItem('salvagers_quest_save');
+      if (!data) return false;
+      const save = JSON.parse(data);
+      this.player = save.player;
+      this.floor = save.floor;
+      this.kills = save.kills;
+      this.goldFound = save.goldFound;
+      this.startedAt = save.startedAt;
+      this.messages = [];
+      this.generateFloor();
+      this.log(`Welcome back, adventurer! Floor ${this.floor}.`, 'new');
+      return true;
+    } catch(e) {
+      return false;
+    }
+  },
+  
+  continueGame() {
+    if (this.loadGame()) {
+      this.showGameScreen();
+    } else {
+      this.startNewGame();
+    }
+  },
+};
+
+// ===================== INPUT HANDLING =====================
+document.addEventListener('keydown', (e) => {
+  if (document.getElementById('game-screen').style.display === 'none' ||
+      document.getElementById('game-screen').style.display === '') return;
+  
+  // Don't handle input if overlay is open
+  if (document.getElementById('inventory-screen').style.display === 'block') return;
+  if (document.getElementById('shop-screen').style.display === 'block') return;
+  if (document.getElementById('level-up-screen').style.display === 'block') return;
+  if (document.getElementById('death-screen').style.display === 'block') return;
+  
+  switch(e.key) {
+    case 'ArrowUp': case 'w': case 'W':
+      e.preventDefault(); GAME.movePlayer(0, -1); break;
+    case 'ArrowDown': case 's': case 'S':
+      e.preventDefault(); GAME.movePlayer(0, 1); break;
+    case 'ArrowLeft': case 'a': case 'A':
+      e.preventDefault(); GAME.movePlayer(-1, 0); break;
+    case 'ArrowRight': case 'd': case 'D':
+      e.preventDefault(); GAME.movePlayer(1, 0); break;
+    case ' ':
+      e.preventDefault(); GAME.wait(); break;
+    case 'i': case 'I':
+      e.preventDefault();
+      GAME.updateInventory();
+      document.getElementById('inventory-screen').style.display = 'block';
+      break;
+  }
+});
+
+// D-pad
+document.querySelectorAll('#dpad button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const dir = btn.dataset.dir;
+    if (dir === 'up') GAME.movePlayer(0, -1);
+    if (dir === 'down') GAME.movePlayer(0, 1);
+    if (dir === 'left') GAME.movePlayer(-1, 0);
+    if (dir === 'right') GAME.movePlayer(1, 0);
+  });
+});
+
+// Buttons
+document.getElementById('start-btn').onclick = () => GAME.startNewGame();
+document.getElementById('continue-btn').onclick = () => GAME.continueGame();
+document.getElementById('btn-inventory').onclick = () => {
+  GAME.updateInventory();
+  document.getElementById('inventory-screen').style.display = 'block';
+};
+document.getElementById('inv-close').onclick = () => {
+  document.getElementById('inventory-screen').style.display = 'none';
+};
+document.getElementById('btn-wait').onclick = () => GAME.wait();
+document.getElementById('shop-close').onclick = () => {
+  document.getElementById('shop-screen').style.display = 'none';
+};
+document.getElementById('restart-btn').onclick = () => {
+  document.getElementById('death-screen').style.display = 'none';
+  document.getElementById('death-screen').querySelector('h1').textContent = 'YOU DIED';
+  document.getElementById('death-screen').querySelector('h1').style.color = '#ff3333';
+  GAME.startNewGame();
+};
+
+// Touch swipe support
+let touchStartX = 0, touchStartY = 0;
+document.getElementById('canvas-wrapper').addEventListener('touchstart', (e) => {
+  const t = e.touches[0];
+  touchStartX = t.clientX;
+  touchStartY = t.clientY;
+  e.preventDefault();
+}, { passive: false });
+
+document.getElementById('canvas-wrapper').addEventListener('touchend', (e) => {
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+  const absDx = Math.abs(dx);
+  const absDy = Math.abs(dy);
+  
+  if (absDx < 20 && absDy < 20) return; // Tap, not swipe
+  
+  if (absDx > absDy) {
+    GAME.movePlayer(dx > 0 ? 1 : -1, 0);
+  } else {
+    GAME.movePlayer(0, dy > 0 ? 1 : -1);
+  }
+  e.preventDefault();
+}, { passive: false });
+
+// Init
+GAME.init();
+</script>
+</body>
+</html>
