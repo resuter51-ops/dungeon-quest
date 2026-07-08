@@ -391,6 +391,50 @@ body {
 .diff-badge.warrior { background: #3a2a0a; color: #ffaa33; }
 .diff-badge.legend { background: #3a0a0a; color: #ff4444; }
 
+/* Tutorial Screen */
+#tutorial-screen {
+  text-align: center;
+  padding: 40px 20px;
+}
+#tutorial-screen h2 {
+  color: #d4af37;
+  font-size: 1.4em;
+  margin-bottom: 16px;
+  letter-spacing: 2px;
+}
+#tutorial-screen .tut-box {
+  background: #111;
+  border: 2px solid #333;
+  border-radius: 6px;
+  padding: 20px;
+  max-width: 400px;
+  margin: 0 auto 20px auto;
+  text-align: left;
+  color: #ccc;
+  font-size: 0.9em;
+  line-height: 2;
+}
+#tutorial-screen .tut-box .tip-icon { margin-right: 8px; }
+#tutorial-screen .tut-note {
+  color: #6a6a5a;
+  font-size: 0.8em;
+  margin-top: 16px;
+}
+
+/* Damage flash overlay */
+#damage-flash {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(255, 0, 0, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 50;
+}
+#damage-flash.hit {
+  opacity: 1;
+  transition: opacity 0.4s ease-out;
+}
+
 </style>
 </head>
 <body>
@@ -407,7 +451,7 @@ body {
     • Find the stairs <span style="color:#d4af37">▶</span> to descend deeper<br>
     • Collect gold, potions, and gear<br>
     • Level up to choose powerful upgrades<br>
-    • Visit the Merchant <span style="color:#44aaff">M</span> to buy items<br>
+    • Visit the Merchant <span style="color:#44aaff">🏪</span> to buy items<br>
     • Find the Amulet on Floor 20 to win!<br>
     • Death is permanent — choose wisely<br><br>
     <span style="color:#6a6a5a">Progress auto-saves locally.</span>
@@ -450,6 +494,20 @@ body {
   <button class="btn" id="diff-back" style="margin-top:10px; font-size:0.8em; padding:8px 20px;">BACK</button>
 </div>
 
+<!-- TUTORIAL SCREEN -->
+<div id="tutorial-screen" style="display:none;">
+  <h2>🎓 BEFORE YOU DELVE</h2>
+  <div class="tut-box">
+    <span class="tip-icon">🕹️</span>Move with arrow keys / WASD or the D-pad below.<br>
+    <span class="tip-icon">⚔️</span>Walk into an enemy to attack it — there's no separate attack button.<br>
+    <span class="tip-icon">🎒</span>Items are picked up automatically. Use potions from your Inventory.<br>
+    <span class="tip-icon">❤️</span>Watch your HP bar (top-left) — if it hits 0, that run is over.<br>
+    <span class="tip-icon">🐀</span>Floor 1 is a training ground — just a couple of rats to warm up on.
+  </div>
+  <button class="btn" id="tutorial-start-btn">GOT IT — LET'S GO</button>
+  <p class="tut-note">You'll only see this once.</p>
+</div>
+
 <!-- GAME SCREEN -->
 <div id="game-screen">
   <div id="hud">
@@ -460,8 +518,9 @@ body {
     <div class="stat">Floor <span id="hud-floor">1</span>/20</div>
     <div class="stat" id="hud-diff-wrapper" style="display:none;">Mode <span id="hud-diff" class="diff-badge adventurer">ADVENTURER</span></div>
   </div>
-  <div id="canvas-wrapper">
+  <div id="canvas-wrapper" style="position:relative;">
     <canvas id="game-canvas"></canvas>
+    <div id="damage-flash"></div>
   </div>
   <div id="message-log"></div>
   <div id="controls">
@@ -704,15 +763,17 @@ const GAME = {
     // Generate enemies
     this.enemies = [];
     const mods = this.difficultyMods[this.difficulty] || this.difficultyMods.adventurer;
-    const numEnemies = Math.floor((3 + Math.floor(this.floor * 0.8) + Math.floor(Math.random() * 3)) * mods.enemyCountMult);
+    const baseCount = this.floor === 1 ? 2 : (2 + Math.floor(this.floor * 0.45) + Math.floor(Math.random() * 2));
+    const numEnemies = Math.max(2, Math.floor(baseCount * mods.enemyCountMult));
     const availableTiles = this.getFloorTiles(rooms);
     
     for (let i = 0; i < numEnemies && availableTiles.length > 0; i++) {
       const idx = Math.floor(Math.random() * availableTiles.length);
       const tile = availableTiles.splice(idx, 1)[0];
       
-      // Don't spawn near player
-      if (Math.abs(tile.x - this.player.x) < 4 && Math.abs(tile.y - this.player.y) < 4) {
+      // Don't spawn near player (extra buffer on floor 1 for a gentle start)
+      const spawnBuffer = this.floor === 1 ? 6 : 4;
+      if (Math.abs(tile.x - this.player.x) < spawnBuffer && Math.abs(tile.y - this.player.y) < spawnBuffer) {
         i--;
         continue;
       }
@@ -730,7 +791,7 @@ const GAME = {
         name: 'Dungeon Lord', hp: Math.floor((120 + Math.floor(this.floor * 3)) * mods.enemyHpMult),
         atk: Math.floor((22 + Math.floor(this.floor * 1.5)) * mods.enemyAtkMult),
         def: 6 + mods.enemyDefBonus, xp: 80, gold: Math.floor(50 * mods.goldMult),
-        glyph: 'L', color: '#ff4444', speed: 1, boss: true
+        glyph: '🐉', color: '#ff4444', speed: 1, boss: true
       };
       // Find a tile near stairs
       for (let dy2 = -2; dy2 <= 2 && !this.bossSpawned; dy2++) {
@@ -791,32 +852,34 @@ const GAME = {
   
   // ===================== ENEMY TYPES =====================
   createEnemy(x, y) {
-    const floorBonus = Math.floor(this.floor * 1.5);
+    const floorBonus = Math.floor(this.floor * 0.9);
     const types = [
-      { name: 'Giant Rat', hp: 15 + floorBonus, atk: 4 + Math.floor(floorBonus/2), def: 0, xp: 8, gold: 2, glyph: 'r', color: '#8b6914', speed: 1 },
-      { name: 'Goblin', hp: 25 + floorBonus, atk: 6 + Math.floor(floorBonus/2), def: 1, xp: 12, gold: 5, glyph: 'g', color: '#4a7a3a', speed: 1 },
-      { name: 'Skeleton', hp: 30 + floorBonus, atk: 8 + Math.floor(floorBonus/2), def: 2, xp: 15, gold: 7, glyph: 's', color: '#cccccc', speed: 1 },
-      { name: 'Zombie', hp: 40 + floorBonus, atk: 7 + Math.floor(floorBonus/2), def: 1, xp: 14, gold: 4, glyph: 'z', color: '#5a7a4a', speed: 0.5 },
-      { name: 'Orc Warrior', hp: 50 + floorBonus, atk: 12 + Math.floor(floorBonus/2), def: 3, xp: 22, gold: 12, glyph: 'o', color: '#3a5a2a', speed: 1 },
-      { name: 'Dark Mage', hp: 35 + floorBonus, atk: 16 + Math.floor(floorBonus/2), def: 2, xp: 28, gold: 18, glyph: 'm', color: '#6a3a8a', speed: 1, ranged: true },
-      { name: 'Troll', hp: 80 + floorBonus, atk: 15 + Math.floor(floorBonus/2), def: 5, xp: 35, gold: 20, glyph: 'T', color: '#5a6a3a', speed: 0.5, regen: 3 },
-      { name: 'Wraith', hp: 45 + floorBonus, atk: 14 + Math.floor(floorBonus/2), def: 3, xp: 30, gold: 15, glyph: 'w', color: '#8a8aaa', speed: 1, phases: true },
-      { name: 'Demon', hp: 70 + floorBonus, atk: 18 + Math.floor(floorBonus/2), def: 4, xp: 40, gold: 25, glyph: 'd', color: '#aa3a3a', speed: 1 },
-      { name: 'Dungeon Lord', hp: 120 + floorBonus * 2, atk: 22 + floorBonus, def: 6, xp: 80, gold: 50, glyph: 'L', color: '#ff4444', speed: 1, boss: true },
+      { name: 'Giant Rat', hp: 15 + floorBonus, atk: 4 + Math.floor(floorBonus/2), def: 0, xp: 8, gold: 2, glyph: '🐀', color: '#8b6914', speed: 1 },
+      { name: 'Goblin', hp: 25 + floorBonus, atk: 6 + Math.floor(floorBonus/2), def: 1, xp: 12, gold: 5, glyph: '👺', color: '#4a7a3a', speed: 1 },
+      { name: 'Skeleton', hp: 30 + floorBonus, atk: 8 + Math.floor(floorBonus/2), def: 2, xp: 15, gold: 7, glyph: '💀', color: '#cccccc', speed: 1 },
+      { name: 'Zombie', hp: 40 + floorBonus, atk: 7 + Math.floor(floorBonus/2), def: 1, xp: 14, gold: 4, glyph: '🧟', color: '#5a7a4a', speed: 0.5 },
+      { name: 'Orc Warrior', hp: 50 + floorBonus, atk: 12 + Math.floor(floorBonus/2), def: 3, xp: 22, gold: 12, glyph: '👹', color: '#3a5a2a', speed: 1 },
+      { name: 'Dark Mage', hp: 35 + floorBonus, atk: 16 + Math.floor(floorBonus/2), def: 2, xp: 28, gold: 18, glyph: '🧙', color: '#6a3a8a', speed: 1, ranged: true },
+      { name: 'Troll', hp: 80 + floorBonus, atk: 15 + Math.floor(floorBonus/2), def: 5, xp: 35, gold: 20, glyph: '🗿', color: '#5a6a3a', speed: 0.5, regen: 3 },
+      { name: 'Wraith', hp: 45 + floorBonus, atk: 14 + Math.floor(floorBonus/2), def: 3, xp: 30, gold: 15, glyph: '👻', color: '#8a8aaa', speed: 1, phases: true },
+      { name: 'Demon', hp: 70 + floorBonus, atk: 18 + Math.floor(floorBonus/2), def: 4, xp: 40, gold: 25, glyph: '😈', color: '#aa3a3a', speed: 1 },
+      { name: 'Dungeon Lord', hp: 120 + floorBonus * 2, atk: 22 + floorBonus, def: 6, xp: 80, gold: 50, glyph: '🐉', color: '#ff4444', speed: 1, boss: true },
     ];
     
-    // Pick enemy based on floor
+    // Pick enemy based on floor - true training wheels on floors 1-3
     let availableTypes;
-    if (this.floor <= 2) {
-      availableTypes = types.slice(0, 3); // rat, goblin, skeleton
-    } else if (this.floor <= 5) {
-      availableTypes = types.slice(0, 5); // + zombie, orc
-    } else if (this.floor <= 8) {
-      availableTypes = types.slice(0, 7); // + mage, troll
-    } else if (this.floor <= 12) {
-      availableTypes = types.slice(0, 9); // + wraith, demon
+    if (this.floor <= 1) {
+      availableTypes = types.slice(0, 1); // rat only - learn the ropes
+    } else if (this.floor <= 3) {
+      availableTypes = types.slice(0, 2); // + goblin
+    } else if (this.floor <= 6) {
+      availableTypes = types.slice(0, 4); // + skeleton, zombie
+    } else if (this.floor <= 9) {
+      availableTypes = types.slice(0, 6); // + orc, mage
+    } else if (this.floor <= 13) {
+      availableTypes = types.slice(0, 8); // + troll, wraith
     } else {
-      availableTypes = types.slice(0, 10); // all
+      availableTypes = types.slice(0, 10); // all, + demon
     }
     
     // Boss every 5 floors - only one boss, placed near stairs
@@ -861,23 +924,23 @@ const GAME = {
   // ===================== ITEM TYPES =====================
   createItem(x, y) {
     const types = [
-      { type: 'potion_heal', name: 'Health Potion', glyph: '!', color: '#ff3333', effect: { heal: 40, baseHeal: 40 }, stackable: true },
-      { type: 'potion_greater', name: 'Greater Health Potion', glyph: '!', color: '#ff6666', effect: { heal: 80, baseHeal: 80 }, stackable: true },
-      { type: 'potion_str', name: 'Potion of Strength', glyph: '!', color: '#ffaa33', effect: { str: 3 }, stackable: true },
-      { type: 'potion_def', name: 'Potion of Defense', glyph: '!', color: '#33aaff', effect: { def: 2 }, stackable: true },
-      { type: 'potion_full', name: 'Elixir of Life', glyph: '!', color: '#ff44ff', effect: { fullHeal: true }, stackable: true },
-      { type: 'weapon', name: 'Sword', glyph: ')', color: '#cccccc', slot: 'weapon' },
-      { type: 'weapon', name: 'Battle Axe', glyph: ')', color: '#cc9933', slot: 'weapon' },
-      { type: 'weapon', name: 'War Hammer', glyph: ')', color: '#996633', slot: 'weapon' },
-      { type: 'weapon', name: 'Enchanted Blade', glyph: ')', color: '#6644ff', slot: 'weapon' },
-      { type: 'armor', name: 'Leather Armor', glyph: '[', color: '#886633', slot: 'armor' },
-      { type: 'armor', name: 'Chain Mail', glyph: '[', color: '#aaaaaa', slot: 'armor' },
-      { type: 'armor', name: 'Plate Armor', glyph: '[', color: '#dddddd', slot: 'armor' },
-      { type: 'armor', name: 'Dragon Scale', glyph: '[', color: '#aa3333', slot: 'armor' },
-      { type: 'ring', name: 'Ring of Power', glyph: '=', color: '#ff4444', slot: 'ring' },
-      { type: 'ring', name: 'Ring of Vitality', glyph: '=', color: '#44ff44', slot: 'ring' },
-      { type: 'ring', name: 'Ring of Warding', glyph: '=', color: '#4444ff', slot: 'ring' },
-      { type: 'gold', name: 'Gold', glyph: '$', color: '#d4af37' },
+      { type: 'potion_heal', name: 'Health Potion', glyph: '🧪', color: '#ff3333', effect: { heal: 40, baseHeal: 40 }, stackable: true },
+      { type: 'potion_greater', name: 'Greater Health Potion', glyph: '⚗️', color: '#ff6666', effect: { heal: 80, baseHeal: 80 }, stackable: true },
+      { type: 'potion_str', name: 'Potion of Strength', glyph: '💪', color: '#ffaa33', effect: { str: 3 }, stackable: true },
+      { type: 'potion_def', name: 'Potion of Defense', glyph: '🛡️', color: '#33aaff', effect: { def: 2 }, stackable: true },
+      { type: 'potion_full', name: 'Elixir of Life', glyph: '✨', color: '#ff44ff', effect: { fullHeal: true }, stackable: true },
+      { type: 'weapon', name: 'Sword', glyph: '🗡️', color: '#cccccc', slot: 'weapon' },
+      { type: 'weapon', name: 'Battle Axe', glyph: '🪓', color: '#cc9933', slot: 'weapon' },
+      { type: 'weapon', name: 'War Hammer', glyph: '🔨', color: '#996633', slot: 'weapon' },
+      { type: 'weapon', name: 'Enchanted Blade', glyph: '⚔️', color: '#6644ff', slot: 'weapon' },
+      { type: 'armor', name: 'Leather Armor', glyph: '🛡️', color: '#886633', slot: 'armor' },
+      { type: 'armor', name: 'Chain Mail', glyph: '🛡️', color: '#aaaaaa', slot: 'armor' },
+      { type: 'armor', name: 'Plate Armor', glyph: '🛡️', color: '#dddddd', slot: 'armor' },
+      { type: 'armor', name: 'Dragon Scale', glyph: '🛡️', color: '#aa3333', slot: 'armor' },
+      { type: 'ring', name: 'Ring of Power', glyph: '💍', color: '#ff4444', slot: 'ring' },
+      { type: 'ring', name: 'Ring of Vitality', glyph: '💍', color: '#44ff44', slot: 'ring' },
+      { type: 'ring', name: 'Ring of Warding', glyph: '💍', color: '#4444ff', slot: 'ring' },
+      { type: 'gold', name: 'Gold', glyph: '🪙', color: '#d4af37' },
     ];
     
     // Weight selection by floor
@@ -930,6 +993,7 @@ const GAME = {
       this.log(`You hit the ${defender.name} for ${dmg} damage!`, 'damage');
     } else {
       this.log(`The ${attacker.name} hits you for ${dmg} damage!`, 'damage');
+      this.flashDamage();
     }
     
     if (defender.hp <= 0) {
@@ -1117,6 +1181,7 @@ const GAME = {
         const dmg = Math.max(1, Math.floor(enemy.atk * 0.7) - this.player.def + Math.floor(Math.random() * 3));
         this.player.hp -= dmg;
         this.log(`The ${enemy.name} casts a spell for ${dmg} damage!`, 'damage');
+        this.flashDamage();
         if (this.player.hp <= 0) {
           this.playerDeath();
           return;
@@ -1485,10 +1550,10 @@ const GAME = {
           ctx.fillStyle = `rgba(20, 20, 28, ${dim})`;
           ctx.fillRect(sx, sy, ts, ts);
           ctx.fillStyle = `rgba(68, 170, 255, ${dim})`;
-          ctx.font = `${ts - 4}px monospace`;
+          ctx.font = `${ts - 4}px "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText('M', sx + ts/2, sy + ts/2);
+          ctx.fillText('🏪', sx + ts/2, sy + ts/2);
         }
       }
     }
@@ -1506,7 +1571,7 @@ const GAME = {
       
       ctx.fillStyle = item.color || '#d4af37';
       ctx.globalAlpha = dim;
-      ctx.font = `${ts - 4}px monospace`;
+      ctx.font = `${ts - 4}px "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(item.glyph || '?', sx + ts/2, sy + ts/2);
@@ -1524,12 +1589,12 @@ const GAME = {
       // Enemy body
       ctx.fillStyle = enemy.color || '#ff3333';
       ctx.globalAlpha = dim;
-      ctx.font = `bold ${ts - 4}px monospace`;
+      ctx.font = `bold ${ts - 4}px "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       
       if (enemy.boss) {
-        ctx.font = `bold ${ts}px monospace`;
+        ctx.font = `bold ${ts}px "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
       }
       
       ctx.fillText(enemy.glyph || '?', sx + ts/2, sy + ts/2);
@@ -1553,15 +1618,15 @@ const GAME = {
     const sx = px * ts;
     const sy = py * ts;
     ctx.fillStyle = '#d4af37';
-    ctx.font = `bold ${ts - 2}px monospace`;
+    ctx.font = `bold ${ts - 2}px "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('@', sx + ts/2, sy + ts/2);
+    ctx.fillText('🧍', sx + ts/2, sy + ts/2);
     
     // Player glow
     ctx.shadowColor = '#d4af37';
     ctx.shadowBlur = 8;
-    ctx.fillText('@', sx + ts/2, sy + ts/2);
+    ctx.fillText('🧍', sx + ts/2, sy + ts/2);
     ctx.shadowBlur = 0;
     
     // Floor number watermark
@@ -1584,6 +1649,16 @@ const GAME = {
   },
   
   // ===================== MESSAGE LOG =====================
+  flashDamage() {
+    const flash = document.getElementById('damage-flash');
+    if (!flash) return;
+    flash.classList.remove('hit');
+    // Force reflow so the transition restarts even on rapid repeated hits
+    void flash.offsetWidth;
+    flash.classList.add('hit');
+    setTimeout(() => flash.classList.remove('hit'), 400);
+  },
+
   log(text, type) {
     this.messages.push({ text, type });
     if (this.messages.length > 50) this.messages.shift();
@@ -1714,9 +1789,20 @@ document.getElementById('diff-back').onclick = () => {
 document.querySelectorAll('.diff-card').forEach(card => {
   card.onclick = () => {
     const diff = card.dataset.diff;
-    GAME.startNewGame(diff);
+    if (!localStorage.getItem('dq_tutorial_seen')) {
+      GAME.pendingDifficulty = diff;
+      document.getElementById('difficulty-screen').style.display = 'none';
+      document.getElementById('tutorial-screen').style.display = '';
+    } else {
+      GAME.startNewGame(diff);
+    }
   };
 });
+document.getElementById('tutorial-start-btn').onclick = () => {
+  localStorage.setItem('dq_tutorial_seen', '1');
+  document.getElementById('tutorial-screen').style.display = 'none';
+  GAME.startNewGame(GAME.pendingDifficulty || 'adventurer');
+};
 document.getElementById('continue-btn').onclick = () => GAME.continueGame();
 document.getElementById('btn-inventory').onclick = () => {
   GAME.updateInventory();
